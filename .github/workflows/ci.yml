@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: py${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # The versions pyproject.toml claims support for.
+        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
+
+    defaults:
+      run:
+        working-directory: lerobot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install the package and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .
+          python -m pip install pytest
+
+      - name: CLI runs without cloud credentials
+        # status() never builds the transport, so the lean install must work
+        # on its own. Only run and flush need the [vmodal] extra.
+        run: |
+          vmodal-robot --help
+          vmodal-robot status --spool_dir="$(mktemp -d)"
+
+      - name: Spool tests
+        run: python -m pytest tests -v
