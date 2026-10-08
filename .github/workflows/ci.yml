@@ -22,9 +22,9 @@ jobs:
         working-directory: lerobot
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -43,3 +43,47 @@ jobs:
 
       - name: Spool tests
         run: python -m pytest tests -v
+
+  ros2:
+    name: ROS 2 Humble
+    runs-on: ubuntu-latest
+
+    # Humble is Ubuntu 22.04, which carries Python 3.10.
+    container:
+      image: osrf/ros:humble-desktop
+
+    defaults:
+      run:
+        working-directory: lerobot
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Show what this is running on
+        run: |
+          . /opt/ros/humble/setup.sh
+          echo "ROS_DISTRO = $ROS_DISTRO"
+          python3 --version
+          . /etc/os-release && echo "$PRETTY_NAME"
+
+      - name: Install the package and pytest
+        run: |
+          command -v pip3 >/dev/null 2>&1 \
+            || (apt-get update && apt-get install -y --no-install-recommends python3-pip)
+          python3 -m pip install --upgrade pip
+          python3 -m pip install .
+          python3 -m pip install pytest
+
+      - name: CLI runs with the ROS 2 environment sourced
+        # Sourcing setup.sh puts ROS 2 on PYTHONPATH. That is the point: the
+        # package has to behave with a full robotics stack already present,
+        # not merely inside an image that happens to contain one.
+        run: |
+          . /opt/ros/humble/setup.sh
+          vmodal-robot --help
+          vmodal-robot status --spool_dir="$(mktemp -d)"
+
+      - name: Spool tests with the ROS 2 environment sourced
+        run: |
+          . /opt/ros/humble/setup.sh
+          python3 -m pytest tests -v
